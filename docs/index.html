@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stromtanke besetzt?</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
+<style>
+  :root {
+    --bg: #0a0d11;
+    --panel: #12161c;
+    --panel-border: #232b35;
+    --text: #e6e9ed;
+    --muted: #7c8794;
+    --accent: #4fd2e6;
+    --green: #34d399;
+    --red: #f2555a;
+    --grey: #5b6270;
+    --lightgrey: #3a4049;
+    --font-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: var(--font-body); background: var(--bg); color: var(--text); }
+  #map { position: absolute; inset: 0; background: var(--bg); }
+  .leaflet-container { background: var(--bg); font-family: var(--font-body); }
+
+  #panel {
+    position: absolute; top: 16px; left: 16px; z-index: 1000;
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 14px;
+    padding: 16px 20px; box-shadow: 0 8px 28px rgba(0,0,0,.45); max-width: 290px;
+  }
+  #panel .eyebrow { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+  #panel h1 { font-size: 17px; font-weight: 600; margin: 0 0 4px; text-wrap: balance; }
+  #panel .sub { font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.5; }
+  .legend-row { display: flex; align-items: center; gap: 9px; font-size: 12.5px; margin: 5px 0; }
+  .legend-row .n { margin-left: auto; font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; box-shadow: 0 0 0 3px rgba(255,255,255,.04); }
+
+  #stats {
+    position: absolute; top: 16px; right: 16px; z-index: 1000;
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 14px;
+    padding: 14px 18px; box-shadow: 0 8px 28px rgba(0,0,0,.45); max-width: 230px;
+  }
+  #stats .eyebrow { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+  #stats .big { font-family: var(--font-mono); font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+  #stats .big .unit { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+  #stats .caption { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  #stats svg { margin-top: 10px; display: block; }
+
+  #updated {
+    position: absolute; bottom: 14px; left: 16px; z-index: 1000;
+    font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+    background: var(--panel); border: 1px solid var(--panel-border);
+    padding: 5px 10px; border-radius: 8px;
+  }
+
+  .popup-title { font-weight: 600; margin-bottom: 2px; font-size: 13.5px; }
+  .popup-sub { color: #5a6270; font-size: 11.5px; margin-bottom: 8px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .popup-status { display: inline-block; padding: 3px 9px; border-radius: 10px; font-size: 11.5px; font-weight: 600; color: #fff; letter-spacing: .01em; }
+  .popup-connectors { font-size: 12px; color: #333; margin-top: 7px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .popup-source { font-size: 10.5px; color: #888; margin-top: 5px; }
+  .leaflet-popup-content-wrapper { font-family: var(--font-body); border-radius: 10px; }
+
+  .cluster-icon { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-weight: 600; color: #0a0d11; font-size: 12px; box-shadow: 0 0 0 4px rgba(255,255,255,.05); }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="panel">
+  <div class="eyebrow">Ladesäulen · NRW</div>
+  <h1>Stromtanke besetzt?</h1>
+  <div class="sub">Live-Steckerbelegung aus dem OCPDB-Pflichtregister (EU-AFIR-Verordnung) – echte Daten der Betreiber, kein Schätzwert.</div>
+  <div class="legend-row"><span class="dot" style="background:var(--green)"></span> mind. 1 Stecker frei <span class="n" id="n-frei">–</span></div>
+  <div class="legend-row"><span class="dot" style="background:var(--red)"></span> belegt / alle laden <span class="n" id="n-besetzt">–</span></div>
+  <div class="legend-row"><span class="dot" style="background:var(--grey)"></span> außer Betrieb <span class="n" id="n-ausser">–</span></div>
+  <div class="legend-row"><span class="dot" style="background:var(--lightgrey)"></span> keine Live-Daten <span class="n" id="n-unbekannt">–</span></div>
+</div>
+
+<div id="stats">
+  <div class="eyebrow">Heute frei (NRW)</div>
+  <div class="big" id="stats-big">–<span class="unit">Stationen</span></div>
+  <div class="caption" id="stats-caption">lädt…</div>
+  <svg id="stats-spark" width="190" height="34" viewBox="0 0 190 34"></svg>
+</div>
+
+<div id="updated">lädt…</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+<script>
+const COLORS = { green: "#34d399", red: "#f2555a", grey: "#5b6270", lightgrey: "#3a4049" };
+const STATUS_LABEL = { frei: "frei", besetzt: "belegt", ausser_betrieb: "außer Betrieb", unbekannt: "keine Live-Daten" };
+
+const map = L.map('map', { zoomControl: true, preferCanvas: true }).setView([51.3, 7.5], 8);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OpenStreetMap, &copy; CARTO',
+  subdomains: 'abcd',
+  maxZoom: 19
+}).addTo(map);
+
+const clusters = L.markerClusterGroup({
+  chunkedLoading: true,
+  maxClusterRadius: 50,
+  iconCreateFunction: function(cluster) {
+    const markers = cluster.getAllChildMarkers();
+    const freiCount = markers.filter(m => m.options.status === 'frei').length;
+    const size = markers.length > 200 ? 46 : markers.length > 50 ? 38 : 30;
+    const bg = freiCount > 0 ? COLORS.green : COLORS.grey;
+    return L.divIcon({
+      html: `<div class="cluster-icon" style="width:${size}px;height:${size}px;background:${bg}">${markers.length}</div>`,
+      className: '', iconSize: [size, size]
+    });
+  }
+});
+
+function sparkPath(values, w, h, pad) {
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const range = (max - min) || 1;
+  const step = (w - pad * 2) / (values.length - 1 || 1);
+  return values.map((v, i) => {
+    const x = pad + i * step;
+    const y = pad + (h - pad * 2) * (1 - (v - min) / range);
+    return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ');
+}
+
+async function loadStats() {
+  try {
+    const history = await fetch('data/stats_history.json').then(r => r.json());
+    if (!history.length) return;
+    const last = history[history.length - 1];
+    document.getElementById('stats-big').innerHTML = `${last.frei}<span class="unit">von ${last.total}</span>`;
+    document.getElementById('stats-caption').textContent = `${last.besetzt} belegt · ${last.ausser_betrieb} außer Betrieb`;
+
+    const series = history.slice(-30).map(r => r.frei);
+    if (series.length > 1) {
+      const path = sparkPath(series, 190, 34, 3);
+      document.getElementById('stats-spark').innerHTML =
+        `<path d="${path}" fill="none" stroke="${COLORS.green}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>`;
+    }
+  } catch (e) { /* noch keine Historie */ }
+}
+
+async function loadStations() {
+  const [meta, latest] = await Promise.all([
+    fetch('data/stations.json').then(r => r.json()),
+    fetch('data/latest.json').then(r => r.json())
+  ]);
+  document.getElementById('updated').textContent = 'Stand: ' + new Date(latest.updated).toLocaleString('de-DE');
+
+  const statusById = new Map(latest.stations.map(s => [s.id, s]));
+  const counts = { frei: 0, besetzt: 0, ausser_betrieb: 0, unbekannt: 0 };
+
+  meta.forEach(m => {
+    const s = statusById.get(m.id);
+    if (!s) return;
+    counts[s.status] = (counts[s.status] || 0) + 1;
+    const color = COLORS[s.color] || COLORS.lightgrey;
+
+    const marker = L.circleMarker([m.lat, m.lon], {
+      status: s.status,
+      radius: 6,
+      color: '#0a0d11',
+      weight: 1.5,
+      fillColor: color,
+      fillOpacity: 0.95
+    });
+
+    marker.bindPopup(`
+      <div class="popup-title">${m.name}</div>
+      <div class="popup-sub">${m.plz || ''} ${m.city || ''}${m.address ? ' · ' + m.address : ''}</div>
+      <span class="popup-status" style="background:${color}">${STATUS_LABEL[s.status]}</span>
+      ${m.connectors_total ? `<div class="popup-connectors">${s.available} von ${m.connectors_total} Ladepunkten frei</div>` : ''}
+      ${s.source ? `<div class="popup-source">Live-Quelle: ${s.source.replace('datex2_','').replace('_',' ')}</div>` : ''}
+    `);
+    clusters.addLayer(marker);
+  });
+
+  map.addLayer(clusters);
+
+  document.getElementById('n-frei').textContent = counts.frei.toLocaleString('de-DE');
+  document.getElementById('n-besetzt').textContent = counts.besetzt.toLocaleString('de-DE');
+  document.getElementById('n-ausser').textContent = counts.ausser_betrieb.toLocaleString('de-DE');
+  document.getElementById('n-unbekannt').textContent = counts.unbekannt.toLocaleString('de-DE');
+}
+
+loadStations();
+loadStats();
+</script>
+</body>
+</html>
