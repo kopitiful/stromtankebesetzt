@@ -28,6 +28,7 @@
   html, body { margin: 0; height: 100%; font-family: var(--font-body); background: var(--bg); color: var(--text); }
   #map { position: absolute; inset: 0; background: var(--bg); }
   .leaflet-container { background: var(--bg); font-family: var(--font-body); }
+  .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.6); }
 
   #panel {
     position: absolute; top: 16px; left: 16px; z-index: 1000;
@@ -98,9 +99,8 @@ const COLORS = { green: "#34d399", red: "#f2555a", grey: "#5b6270", lightgrey: "
 const STATUS_LABEL = { frei: "frei", besetzt: "belegt", ausser_betrieb: "außer Betrieb", unbekannt: "keine Live-Daten" };
 
 const map = L.map('map', { zoomControl: true, preferCanvas: true }).setView([51.3, 7.5], 8);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; OpenStreetMap, &copy; CARTO',
-  subdomains: 'abcd',
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
   maxZoom: 19
 }).addTo(map);
 
