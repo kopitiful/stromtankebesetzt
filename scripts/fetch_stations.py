@@ -35,6 +35,7 @@ mehrere GB an):
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -56,6 +57,21 @@ HISTORY_RETENTION_DAYS = 30
 
 NRW_PLZ_PREFIX = {"32", "33", "40", "41", "42", "44", "45", "46", "47", "48",
                   "50", "51", "52", "53", "57", "58", "59"}
+
+# Heuristik fuer Autobahn-nahe Standorte (Raststaetten/Autohoefe): Hinweis im
+# Namen/Adresse ODER ein eigenstaendiger Autobahn-Bezug wie "A3"/"A555" als
+# Wort (Wortgrenzen, damit z.B. "Am Hagen" nicht matcht).
+AUTOBAHN_KEYWORDS = re.compile(
+    r"\b(Rasth[o|ö]f|Raststätte|Raststaette|Autohof|BAB|Tank\s*&?\s*Rast)\b",
+    re.IGNORECASE,
+)
+AUTOBAHN_ROUTE = re.compile(r"\bA\s?\d{1,3}\b")
+
+
+def is_autobahn(item):
+    operator_name = (item.get("operator") or {}).get("name") or ""
+    text = f"{operator_name} {item.get('address') or ''}"
+    return bool(AUTOBAHN_KEYWORDS.search(text) or AUTOBAHN_ROUTE.search(text))
 
 
 def fetch_page(offset):
@@ -99,8 +115,16 @@ def fetch_all_locations():
 def is_nrw(item):
     if item.get("source") == "bnetza_api":
         return item.get("state") == "Nordrhein-Westfalen"
-    plz = (item.get("postal_code") or "")[:2]
-    return plz in NRW_PLZ_PREFIX
+    # Laender ausserhalb Deutschlands zuerst ausschliessen: Schweizer PLZ sind
+    # 4-stellig und kollidieren mit unseren 2-stelligen NRW-Praefixen (z.B.
+    # "4106 Therwil" matcht sonst faelschlich Praefix "41").
+    country = (item.get("country") or "").upper()
+    if country and country != "DEU":
+        return False
+    postal_code = item.get("postal_code") or ""
+    if len(postal_code) != 5:
+        return False
+    return postal_code[:2] in NRW_PLZ_PREFIX
 
 
 def dedupe(items):
@@ -201,6 +225,7 @@ def build_station_meta(item):
         "lon": coords["longitude"],
         "connectors_total": total,
         "max_power_kw": max_power_kw,
+        "autobahn": is_autobahn(item),
     }
 
 

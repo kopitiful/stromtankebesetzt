@@ -40,13 +40,23 @@ echte, offizielle, kostenlose Live-Daten statt eines Rate-Limit-Problems.
    - **besetzt** – alle `CHARGING`/`RESERVED`, keiner frei
    - **außer Betrieb** – `OUTOFORDER`/`INOPERATIVE`/`REMOVED`/`BLOCKED`
    - **keine Live-Daten** – nur BNetzA-Basisregister, kein Live-Feed
-3. Ergebnis landet in `docs/data/latest.json` (~21.500 NRW-Standorte),
+3. Zusaetzlich wird pro Standort per Regex-Heuristik erkannt, ob es sich um
+   eine Autobahn-Raststätte/einen Autohof handelt (Name/Adresse enthält
+   "Raststätte"/"Rasthof"/"Autohof"/"BAB" oder einen Autobahn-Bezug wie "A3",
+   "A555" als eigenständiges Wort) – Feld `autobahn: true/false`. Nur ein
+   Erkennungs-Heuristik, kein amtliches Merkmal: erfasst nicht jede Station
+   an einer Autobahn, aber ohne Fehlalarme bei normalen Straßennamen.
+4. Ergebnis landet in `docs/data/latest.json` (~20.600 NRW-Standorte, nach
+   Filterung auf `country=DEU` – frühere Version hatte fälschlich ~1.200
+   Schweizer Stationen wegen PLZ-Präfix-Kollision mit eingerechnet),
    `docs/data/history/<datum>.json` (Tages-Archiv) und
    `docs/data/stats_history.json` (Tagesaggregat frei/besetzt/... für den
    Verlauf im Dashboard, ohne pro-Standort-Historie zu speichern).
-4. `docs/index.html`: statische Leaflet-Karte mit Clustering
+5. `docs/index.html`: statische Leaflet-Karte mit Clustering
    (Leaflet.markercluster, da >20.000 Marker) – lädt die JSONs per
-   `fetch()`, kein Server nötig, GitHub Pages reicht.
+   `fetch()`, kein Server nötig, GitHub Pages reicht. Autobahn-Standorte
+   bekommen einen cyanfarbenen Ring; Checkbox im Panel blendet alle
+   anderen aus ("nur Autobahn-Raststätten").
 
 ## Setup
 
