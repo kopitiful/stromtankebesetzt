@@ -154,22 +154,37 @@ STATUS_COLOR = {
     "unbekannt": "lightgrey",
 }
 
-# Grobe Richtwerte fuer eine typische Ladesession (0-80%), je Anschlussleistung.
-# Quelle: ADAC/Herstellerangaben 2026 (siehe README) - KEIN Messwert dieser
-# konkreten Session, nur ein Erfahrungswert zur groben Einordnung.
-TYPICAL_SESSION_MIN = [
-    (100, 28),   # >=100 kW HPC: ~20-35 Min
-    (50, 40),    # 50-99 kW: ~30-45 Min
-    (0, 55),     # <50 kW: ~45-60 Min
+# Stuetzpunkte fuer eine typische Ladesession (ca. 10-80%), nach Anschlussleistung.
+# Quelle: ADAC/Herstellerangaben 2026 (siehe README). Bewusst KEINE reine
+# kWh/kW-Rechnung mit einer einzelnen "Durchschnittsbatterie": an starken
+# HPC-Ladern stehen im Schnitt andere (groessere, schnellere) Autos als an
+# schwachen 50kW-Saeulen, das bilden diese Realwert-Stuetzpunkte bereits ab -
+# eine generische Batteriegroesse ueber alle Leistungsklassen würde die
+# Schaetzung eher verschlechtern. Zwischen den Punkten wird linear interpoliert,
+# damit die tatsaechliche kW-Zahl der Station einfliesst statt nur 3 grober
+# Stufen.
+SESSION_MIN_BY_POWER = [
+    (43, 55),    # ~45-60 Min
+    (50, 48),
+    (75, 40),    # ~30-45 Min
+    (100, 32),
+    (150, 24),   # ~20-35 Min
+    (300, 20),
 ]
 MIN_POWER_FOR_ESTIMATE_KW = 43  # unter DC-Schnelllade-Schwelle keine Schaetzung (AC-Sessions dauern Stunden)
 
 
 def typical_session_minutes(power_kw):
-    for threshold, minutes in TYPICAL_SESSION_MIN:
-        if power_kw >= threshold:
-            return minutes
-    return TYPICAL_SESSION_MIN[-1][1]
+    points = SESSION_MIN_BY_POWER
+    if power_kw <= points[0][0]:
+        return points[0][1]
+    if power_kw >= points[-1][0]:
+        return points[-1][1]
+    for (p0, m0), (p1, m1) in zip(points, points[1:]):
+        if p0 <= power_kw <= p1:
+            frac = (power_kw - p0) / (p1 - p0)
+            return round(m0 + frac * (m1 - m0))
+    return points[-1][1]
 
 
 def build_station_meta(item):

@@ -64,6 +64,7 @@
   .popup-sub { color: #5a6270; font-size: 11.5px; margin-bottom: 8px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
   .popup-status { display: inline-block; padding: 3px 9px; border-radius: 10px; font-size: 11.5px; font-weight: 600; color: #fff; letter-spacing: .01em; }
   .popup-connectors { font-size: 12px; color: #333; margin-top: 7px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .popup-hint { font-size: 10.5px; color: #8a8f98; margin-top: 3px; line-height: 1.4; }
   .popup-source { font-size: 10.5px; color: #888; margin-top: 5px; }
   .leaflet-popup-content-wrapper { font-family: var(--font-body); border-radius: 10px; }
 
@@ -135,13 +136,16 @@ function waitInfo(s) {
   if (s.status !== 'besetzt' || !s.occupied_since) return '';
   const elapsedMin = Math.round((Date.now() - new Date(s.occupied_since).getTime()) / 60000);
   const elapsedTxt = elapsedMin < 60 ? `${elapsedMin} Min` : `${(elapsedMin / 60).toFixed(1)} Std`;
-  let remainTxt = '';
+
+  let line1 = `lädt seit mind. ${elapsedTxt}`;
+  let line2 = '';
   if (s.est_remaining_min !== null && s.est_remaining_min !== undefined) {
-    remainTxt = s.est_remaining_min <= 0
-      ? ' · könnte jederzeit frei werden'
-      : ` · ~${s.est_remaining_min} Min bis evtl. frei (Schätzung)`;
+    line1 += s.est_remaining_min <= 0
+      ? ' · könnte jederzeit fertig sein'
+      : ` · könnte in ~${s.est_remaining_min} Min fertig sein`;
+    line2 = `<div class="popup-hint">Schätzung, kein Messwert – Auto könnte danach trotzdem stehen bleiben.</div>`;
   }
-  return `<div class="popup-connectors">belegt seit mind. ${elapsedTxt}${remainTxt}</div>`;
+  return `<div class="popup-connectors">${line1}</div>${line2}`;
 }
 
 async function loadStats() {

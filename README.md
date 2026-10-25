@@ -53,22 +53,30 @@ echte, offizielle, kostenlose Live-Daten statt eines Rate-Limit-Problems.
 1. GitHub Pages auf Branch `main`, Ordner `/docs` aktivieren.
 2. Fertig – kein API-Key, kein Secret nötig.
 
-## Wartezeit-Schätzung ("belegt seit / ~X Min bis evtl. frei")
+## Wartezeit-Schätzung ("lädt seit X · könnte in ~Y Min fertig sein")
 
 Keine Quelle (Google, OCPI) meldet eine echte Restzeit. Was es gibt:
 `evse.last_updated` aus dem Live-Feed – der Zeitpunkt, zu dem sich der
 Status dieses Ladepunkts zuletzt geändert hat. Daraus wird:
 
-1. **"belegt seit mind. X Min/Std"** – `jetzt - last_updated` des am
+1. **"lädt seit mind. X Min/Std"** – `jetzt - last_updated` des am
    längsten ladenden Ladepunkts am Standort. Faktenbasiert (Mindestdauer),
    kein Schätzwert.
-2. **"~Y Min bis evtl. frei"** – nur bei DC-Schnellladern (≥43 kW):
-   `typische Sessiondauer (nach Ladeleistung) - bereits verstrichene Zeit`.
-   Typische Dauer nach ADAC/Herstellerangaben 2026: ≥100 kW ≈ 28 Min,
-   50–99 kW ≈ 40 Min, <50 kW ≈ 55 Min (0–80 %). **Reine Schätzung** auf
-   Basis von Durchschnittswerten, keine Messung dieser konkreten Session –
-   das tatsächliche Fahrzeug kann kürzer oder länger laden. Bei AC-Ladern
-   (<43 kW) wird bewusst keine Schätzung gezeigt, da Sessions dort
+2. **"könnte in ~Y Min fertig sein"** – nur bei DC-Schnellladern (≥43 kW):
+   `typische Sessiondauer bei dieser kW-Zahl - bereits verstrichene Zeit`.
+   Die typische Dauer wird **stufenlos nach der tatsächlichen Ladeleistung
+   der Station** interpoliert (nicht nur 3 grobe Stufen), anhand von
+   ADAC/Herstellerangaben 2026 als Stützpunkte: 43 kW ≈ 55 Min, 75 kW ≈ 40 Min,
+   100 kW ≈ 32 Min, 150 kW ≈ 24 Min, 300 kW ≈ 20 Min (jeweils ca. 10–80 %).
+   Bewusst **keine** Rechnung "Durchschnittsbatterie ÷ kW": an starken
+   HPC-Ladern stehen im Schnitt andere (größere, schneller ladende) Autos
+   als an schwachen 50-kW-Säulen – eine einzelne Batteriegröße über alle
+   Leistungsklassen hinweg würde die Schätzung eher verschlechtern, die
+   ADAC-Realwerte bilden diesen Effekt bereits ab.
+   **Reine Schätzung**, keine Messung dieser konkreten Session – das
+   tatsächliche Fahrzeug kann kürzer oder länger laden, und selbst wenn es
+   fertig ist, könnte es stehen bleiben (siehe Hinweistext im Popup). Bei
+   AC-Ladern (<43 kW) wird bewusst keine Schätzung gezeigt, da Sessions dort
    Stunden statt Minuten dauern und zu stark streuen.
 
 ## Grenzen
