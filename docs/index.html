@@ -131,6 +131,19 @@ function sparkPath(values, w, h, pad) {
   }).join(' ');
 }
 
+function waitInfo(s) {
+  if (s.status !== 'besetzt' || !s.occupied_since) return '';
+  const elapsedMin = Math.round((Date.now() - new Date(s.occupied_since).getTime()) / 60000);
+  const elapsedTxt = elapsedMin < 60 ? `${elapsedMin} Min` : `${(elapsedMin / 60).toFixed(1)} Std`;
+  let remainTxt = '';
+  if (s.est_remaining_min !== null && s.est_remaining_min !== undefined) {
+    remainTxt = s.est_remaining_min <= 0
+      ? ' · könnte jederzeit frei werden'
+      : ` · ~${s.est_remaining_min} Min bis evtl. frei (Schätzung)`;
+  }
+  return `<div class="popup-connectors">belegt seit mind. ${elapsedTxt}${remainTxt}</div>`;
+}
+
 async function loadStats() {
   try {
     const history = await fetch('data/stats_history.json').then(r => r.json());
@@ -178,6 +191,7 @@ async function loadStations() {
       <div class="popup-sub">${m.plz || ''} ${m.city || ''}${m.address ? ' · ' + m.address : ''}</div>
       <span class="popup-status" style="background:${color}">${STATUS_LABEL[s.status]}</span>
       ${m.connectors_total ? `<div class="popup-connectors">${s.available} von ${m.connectors_total} Ladepunkten frei</div>` : ''}
+      ${waitInfo(s)}
       ${s.source ? `<div class="popup-source">Live-Quelle: ${s.source.replace('datex2_','').replace('_',' ')}</div>` : ''}
     `);
     clusters.addLayer(marker);

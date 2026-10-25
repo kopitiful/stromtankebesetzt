@@ -120,13 +120,19 @@ def dedupe(items):
 
 
 def evse_statuses(item):
-    statuses = []
-    total = 0
+    """Liefert (evse_records, total, max_power_kw). evse_records ist eine
+    Liste von (status, last_updated) je Ladepunkt. max_power_kw ist die
+    höchste gemeldete Nennleistung eines Pools an diesem Standort (massgeblich
+    fuer die Dauer-Schaetzung: HPC laedt schneller als ein 22kW-AC-Lader)."""
+    evse_records = []
+    max_power_kw = 0.0
     for pool in item.get("charging_pool", []):
+        power = (pool.get("max_power") or {}).get("value")
+        if power:
+            max_power_kw = max(max_power_kw, float(power))
         for evse in pool.get("evses", []):
-            total += 1
-            statuses.append(evse.get("status"))
-    return statuses, total
+            evse_records.append((evse.get("status"), evse.get("last_updated")))
+    return evse_records, len(evse_records), max_power_kw
 
 
 def aggregate_status(statuses):
@@ -148,9 +154,26 @@ STATUS_COLOR = {
     "unbekannt": "lightgrey",
 }
 
+# Grobe Richtwerte fuer eine typische Ladesession (0-80%), je Anschlussleistung.
+# Quelle: ADAC/Herstellerangaben 2026 (siehe README) - KEIN Messwert dieser
+# konkreten Session, nur ein Erfahrungswert zur groben Einordnung.
+TYPICAL_SESSION_MIN = [
+    (100, 28),   # >=100 kW HPC: ~20-35 Min
+    (50, 40),    # 50-99 kW: ~30-45 Min
+    (0, 55),     # <50 kW: ~45-60 Min
+]
+MIN_POWER_FOR_ESTIMATE_KW = 43  # unter DC-Schnelllade-Schwelle keine Schaetzung (AC-Sessions dauern Stunden)
+
+
+def typical_session_minutes(power_kw):
+    for threshold, minutes in TYPICAL_SESSION_MIN:
+        if power_kw >= threshold:
+            return minutes
+    return TYPICAL_SESSION_MIN[-1][1]
+
 
 def build_station_meta(item):
-    _, total = evse_statuses(item)
+    _, total, max_power_kw = evse_statuses(item)
     coords = item["coordinates"]
     operator = (item.get("operator") or {}).get("name") or "Unbekannter Betreiber"
     return {
@@ -162,18 +185,39 @@ def build_station_meta(item):
         "lat": coords["latitude"],
         "lon": coords["longitude"],
         "connectors_total": total,
+        "max_power_kw": max_power_kw,
     }
 
 
-def build_station_status(item):
-    statuses, _ = evse_statuses(item)
+def build_station_status(item, now):
+    evse_records, _, max_power_kw = evse_statuses(item)
+    statuses = [s for s, _ in evse_records]
     status = aggregate_status(statuses)
+
+    occupied_since = None
+    est_remaining_min = None
+    if status == "besetzt":
+        charging_updates = [lu for s, lu in evse_records if s in ("CHARGING", "RESERVED") and lu]
+        if charging_updates:
+            # frühester Start = am längsten ladend = am ehesten bald fertig
+            occupied_since = min(charging_updates)
+            try:
+                started = datetime.fromisoformat(occupied_since.replace("Z", "+00:00"))
+                elapsed_min = (now.astimezone(started.tzinfo) - started).total_seconds() / 60
+                if max_power_kw >= MIN_POWER_FOR_ESTIMATE_KW:
+                    typical = typical_session_minutes(max_power_kw)
+                    est_remaining_min = max(0, round(typical - elapsed_min))
+            except ValueError:
+                pass
+
     return {
         "id": item.get("id"),
         "status": status,
         "color": STATUS_COLOR[status],
         "available": statuses.count("AVAILABLE"),
         "source": item.get("source") if status != "unbekannt" else None,
+        "occupied_since": occupied_since,
+        "est_remaining_min": est_remaining_min,
     }
 
 
@@ -196,10 +240,10 @@ def main():
     deduped = dedupe(nrw_items)
     print(f"NRW (nach Dedup): {len(deduped)}")
 
-    meta = [build_station_meta(it) for it in deduped]
-    status_rows = [build_station_status(it) for it in deduped]
-
     now = datetime.now(TZ)
+    meta = [build_station_meta(it) for it in deduped]
+    status_rows = [build_station_status(it, now) for it in deduped]
+
     today = now.strftime("%Y-%m-%d")
 
     os.makedirs(HISTORY_DIR, exist_ok=True)

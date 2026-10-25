@@ -53,6 +53,24 @@ echte, offizielle, kostenlose Live-Daten statt eines Rate-Limit-Problems.
 1. GitHub Pages auf Branch `main`, Ordner `/docs` aktivieren.
 2. Fertig – kein API-Key, kein Secret nötig.
 
+## Wartezeit-Schätzung ("belegt seit / ~X Min bis evtl. frei")
+
+Keine Quelle (Google, OCPI) meldet eine echte Restzeit. Was es gibt:
+`evse.last_updated` aus dem Live-Feed – der Zeitpunkt, zu dem sich der
+Status dieses Ladepunkts zuletzt geändert hat. Daraus wird:
+
+1. **"belegt seit mind. X Min/Std"** – `jetzt - last_updated` des am
+   längsten ladenden Ladepunkts am Standort. Faktenbasiert (Mindestdauer),
+   kein Schätzwert.
+2. **"~Y Min bis evtl. frei"** – nur bei DC-Schnellladern (≥43 kW):
+   `typische Sessiondauer (nach Ladeleistung) - bereits verstrichene Zeit`.
+   Typische Dauer nach ADAC/Herstellerangaben 2026: ≥100 kW ≈ 28 Min,
+   50–99 kW ≈ 40 Min, <50 kW ≈ 55 Min (0–80 %). **Reine Schätzung** auf
+   Basis von Durchschnittswerten, keine Messung dieser konkreten Session –
+   das tatsächliche Fahrzeug kann kürzer oder länger laden. Bei AC-Ladern
+   (<43 kW) wird bewusst keine Schätzung gezeigt, da Sessions dort
+   Stunden statt Minuten dauern und zu stark streuen.
+
 ## Grenzen
 
 - Nur Standorte mit einer der Live-Quellen (aktuell gut die Hälfte aller
@@ -61,5 +79,6 @@ echte, offizielle, kostenlose Live-Daten statt eines Rate-Limit-Problems.
 - "Besetzt" heißt: alle gemeldeten Ladepunkte laden/reserviert – das
   OCPI-Feld bildet den tatsächlichen Stecker-Status ab, keine Warteschlange
   davor.
+- Die Minuten-Schätzung ist ein Erfahrungswert, keine Garantie – siehe oben.
 - Mehr Live-Abdeckung kommt mit der Zeit automatisch, sobald mehr Betreiber
   ihre AFIR-Pflicht per Live-Feed statt nur Basisregister erfüllen.
