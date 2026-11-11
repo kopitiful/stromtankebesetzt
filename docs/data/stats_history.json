@@ -126,5 +126,13 @@
     "ausser_betrieb": 739,
     "unbekannt": 9607,
     "total": 20867
+  },
+  {
+    "date": "2026-11-11",
+    "frei": 9640,
+    "besetzt": 873,
+    "ausser_betrieb": 739,
+    "unbekannt": 9616,
+    "total": 20868
   }
 ]
